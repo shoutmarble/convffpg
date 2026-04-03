@@ -1,0 +1,26 @@
+name: packaging
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  flatpak-and-metadata:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak-builder appstream desktop-file-utils
+
+      - name: Validate packaging metadata
+        run: ./flatpak/validate-packaging.sh
+
+      - name: Build Flatpak manifest
+        run: ./flatpak/build-flatpak.sh

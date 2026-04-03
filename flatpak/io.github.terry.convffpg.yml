@@ -1,0 +1,35 @@
+app-id: io.github.terry.convffpg
+runtime: org.gnome.Platform
+runtime-version: "48"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: convffpg
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  append-ld-library-path: /usr/lib/sdk/rust-stable/lib
+  env:
+    CARGO_HOME: /run/build/convffpg/cargo
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --filesystem=xdg-download
+  - --filesystem=xdg-videos
+  - --device=dri
+modules:
+  - name: convffpg
+    buildsystem: simple
+    build-commands:
+      - test -f frontend/dist/index.html
+      - cargo --frozen --offline build --release --manifest-path src-tauri/Cargo.toml
+      - install -Dm755 src-tauri/target/release/convffpg-tauri /app/bin/convffpg
+      - install -Dm644 flatpak/io.github.terry.convffpg.desktop /app/share/applications/io.github.terry.convffpg.desktop
+      - install -Dm644 flatpak/io.github.terry.convffpg.metainfo.xml /app/share/metainfo/io.github.terry.convffpg.metainfo.xml
+      - install -Dm644 flatpak/io.github.terry.convffpg.svg /app/share/icons/hicolor/scalable/apps/io.github.terry.convffpg.svg
+    sources:
+      - type: dir
+        path: ..
+

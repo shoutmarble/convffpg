@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.terry.convffpg</id>
+  <name>convffpg</name>
+  <summary>Imported MP4 editor with bundled FFmpeg export</summary>
+  <developer id="io.github.terry">
+    <name>Terry</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-Proprietary</project_license>
+  <url type="homepage">https://github.com/shoutmarble/convffpg</url>
+  <description>
+    <p>
+      convffpg is a Tauri desktop editor that imports MP4 clips into persisted sessions and uses a bundled FFmpeg
+      toolchain to export edited MP4 and GIF outputs.
+    </p>
+    <p>
+      The current build focuses on an OpenScreen-style imported-video workflow with timeline trim, speed, magnify,
+      and text regions, plus recent-session reopening and project persistence.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.terry.convffpg.desktop</launchable>
+  <provides>
+    <binary>convffpg</binary>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+    <category>Graphics</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-04-03">
+      <description>
+        <p>
+          Tauri rewrite release with imported-MP4 editing, bundled FFmpeg export, session persistence,
+          and refreshed Flatpak packaging around the desktop shell.
+        </p>
+      </description>
+    </release>
+  </releases>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Imported MP4 editing workflow</caption>
+      <image type="source" width="1280" height="720">https://raw.githubusercontent.com/shoutmarble/convffpg/master/flatpak/io.github.terry.convffpg-screenshot.png</image>
+    </screenshot>
+  </screenshots>
+</component>

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=convffpg
+Comment=Imported MP4 editor with bundled FFmpeg export
+Exec=convffpg
+Icon=io.github.terry.convffpg
+Categories=AudioVideo;Video;
+StartupNotify=true
+Terminal=false

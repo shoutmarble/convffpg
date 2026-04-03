@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="convffpg icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#182431"/>
+      <stop offset="100%" stop-color="#274e3e"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#bg)"/>
+  <rect x="36" y="54" width="184" height="116" rx="18" fill="#f2f0e8" opacity="0.96"/>
+  <polygon points="108,88 170,112 108,136" fill="#244e3c"/>
+  <rect x="52" y="182" width="66" height="22" rx="11" fill="#e57c42"/>
+  <rect x="126" y="182" width="78" height="22" rx="11" fill="#244e3c"/>
+  <circle cx="196" cy="60" r="18" fill="#e57c42"/>
+</svg>
