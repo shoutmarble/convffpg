@@ -29,22 +29,43 @@ Install the JavaScript dependencies:
 npm install
 ```
 
-Build the frontend bundle:
-
-```bash
-npm run build
-```
-
-Run the Tauri desktop shell in development:
+Run the app in development:
 
 ```bash
 npm run tauri:dev
+```
+
+Run the packaged Flatpak app:
+
+```bash
+flatpak run io.github.terry.convffpg
+```
+
+Rebuild and reinstall the Flatpak package, then run it:
+
+```bash
+./flatpak/build-flatpak.sh
+flatpak run io.github.terry.convffpg
+```
+
+## Checks
+
+Compile-check the desktop shell without launching it:
+
+```bash
+cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
 Compile-check the shared Rust backend without the desktop shell:
 
 ```bash
 cargo check --lib
+```
+
+Build the frontend bundle without launching the desktop shell:
+
+```bash
+npm run build
 ```
 
 ## Linux desktop prerequisites
@@ -72,9 +93,9 @@ The helper script now detects KDE neon correctly:
 
 ## Flatpak
 
-The Flatpak scaffolding under [flatpak/io.github.terry.convffpg.yml](/home/terry/Documents/GIT/convffpg/flatpak/io.github.terry.convffpg.yml) now packages the Tauri binary instead of the retired root binary.
+The Flatpak manifest at [flatpak/io.github.terry.convffpg.yml](/home/terry/Documents/GIT/convffpg/flatpak/io.github.terry.convffpg.yml) packages the Tauri binary instead of the retired root binary.
 
-The helper script builds the frontend bundle on the host first, then runs `flatpak-builder`:
+The helper script builds the frontend bundle on the host first and then runs `flatpak-builder`:
 
 ```bash
 ./flatpak/build-flatpak.sh

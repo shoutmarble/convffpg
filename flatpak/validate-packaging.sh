@@ -45,7 +45,7 @@ else
   fi
   rm -f "$appstream_output_file"
   if grep -q '<url type="homepage">https://github.com/shoutmarble/convffpg</url>' "$metainfo" \
-    && grep -q 'https://raw.githubusercontent.com/shoutmarble/convffpg/master/flatpak/io.github.terry.convffpg-screenshot.png' "$metainfo"; then
+    && grep -q 'https://raw.githubusercontent.com/shoutmarble/convffpg/main/flatpak/io.github.terry.convffpg-screenshot.png' "$metainfo"; then
     echo "Hosted homepage and screenshot URLs are configured in the checked-in metainfo."
   else
     echo "Run ./scripts/render-metainfo.sh if you want to inject alternate hosted URLs into the AppStream metadata."

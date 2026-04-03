@@ -41,7 +41,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>Imported MP4 editing workflow</caption>
-      <image type="source" width="1280" height="720">https://raw.githubusercontent.com/shoutmarble/convffpg/master/flatpak/io.github.terry.convffpg-screenshot.png</image>
+      <image type="source" width="1280" height="720">https://raw.githubusercontent.com/shoutmarble/convffpg/main/flatpak/io.github.terry.convffpg-screenshot.png</image>
     </screenshot>
   </screenshots>
 </component>
