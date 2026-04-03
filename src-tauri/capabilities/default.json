@@ -4,8 +4,6 @@
   "description": "Default capability set for the main convffpg window.",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "dialog:default",
-    "opener:default"
+    "core:default"
   ]
 }

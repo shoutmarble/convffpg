@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 
 type TimelineTrackKind = "Trim" | "Speed" | "Zoom" | "Annotation";
 type ExportFormat = "Gif" | "Mp4";
@@ -110,6 +109,34 @@ type ExportOutcome = {
   intermediate_mp4_path: string;
 };
 
+type BrowserRoot = {
+  key: string;
+  label: string;
+  path: string;
+};
+
+type BrowserEntry = {
+  name: string;
+  path: string;
+  is_directory: boolean;
+};
+
+type BrowserListing = {
+  path: string;
+  parent_path: string | null;
+  entries: BrowserEntry[];
+};
+
+type BrowserFilter = "all" | "mp4" | "session";
+
+type BrowserPreferences = {
+  rootKey: string | null;
+  filter: BrowserFilter;
+  query: string;
+  directoryPath: string | null;
+  selectedPath: string | null;
+};
+
 type Selection = {
   trackIndex: number;
   regionId: string;
@@ -142,8 +169,10 @@ type SnapGuide = {
 const TRACK_SEQUENCE: TimelineTrackKind[] = ["Trim", "Speed", "Zoom", "Annotation"];
 const MIN_REGION_MS = 200;
 const SNAP_MS = 250;
+const BROWSER_PREFERENCES_KEY = "convffpg.browser-preferences";
 
 function App() {
+  const initialBrowserPreferences = loadBrowserPreferences();
   const [session, setSession] = useState<LoadedSession | null>(null);
   const [videoPath, setVideoPath] = useState<string | null>(null);
   const [videoDurationMs, setVideoDurationMs] = useState(30000);
@@ -155,6 +184,21 @@ function App() {
   const [lastExportPath, setLastExportPath] = useState<string | null>(null);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [snapGuide, setSnapGuide] = useState<SnapGuide | null>(null);
+  const [browserRoots, setBrowserRoots] = useState<BrowserRoot[]>([]);
+  const [browserDirectory, setBrowserDirectory] = useState<BrowserListing | null>(null);
+  const [browserSelectedPath, setBrowserSelectedPath] = useState<string | null>(initialBrowserPreferences.selectedPath);
+  const [browserRootKey, setBrowserRootKey] = useState<string | null>(initialBrowserPreferences.rootKey);
+  const [browserBusy, setBrowserBusy] = useState(false);
+  const [browserQuery, setBrowserQuery] = useState(initialBrowserPreferences.query);
+  const [browserFilter, setBrowserFilter] = useState<BrowserFilter>(initialBrowserPreferences.filter);
+
+  const browserBreadcrumbs = useMemo(() => {
+    if (!browserDirectory) {
+      return [];
+    }
+
+    return buildBrowserBreadcrumbs(browserDirectory.path, browserRoots);
+  }, [browserDirectory, browserRoots]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timelineDragRef = useRef<TimelineDragState | null>(null);
@@ -164,7 +208,52 @@ function App() {
   useEffect(() => {
     void refreshRecentSessions();
     void checkFfmpeg();
+    void refreshBrowserRoots();
   }, []);
+
+  useEffect(() => {
+    saveBrowserPreferences({
+      rootKey: browserRootKey,
+      filter: browserFilter,
+      query: browserQuery,
+      directoryPath: browserDirectory?.path ?? null,
+      selectedPath: browserSelectedPath
+    });
+  }, [browserDirectory, browserFilter, browserQuery, browserRootKey, browserSelectedPath]);
+
+  const selectedBrowserEntry = useMemo(() => {
+    if (!browserDirectory || !browserSelectedPath) {
+      return null;
+    }
+
+    return browserDirectory.entries.find((entry) => entry.path === browserSelectedPath) ?? null;
+  }, [browserDirectory, browserSelectedPath]);
+
+  const filteredBrowserEntries = useMemo(() => {
+    if (!browserDirectory) {
+      return [];
+    }
+
+    const query = browserQuery.trim().toLowerCase();
+
+    return browserDirectory.entries.filter((entry) => {
+      const extension = fileExtension(entry.path);
+      const matchesFilter = entry.is_directory
+        || browserFilter === "all"
+        || (browserFilter === "mp4" && extension === "mp4")
+        || (browserFilter === "session" && extension === "json");
+
+      if (!matchesFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return entry.name.toLowerCase().includes(query);
+    });
+  }, [browserDirectory, browserFilter, browserQuery]);
 
   const selectedRegion = useMemo(() => {
     if (!session || !selected) {
@@ -341,30 +430,102 @@ function App() {
     }
   }
 
-  async function pickMp4() {
-    const picked = await open({
-      multiple: false,
-      filters: [{ name: "MP4 Video", extensions: ["mp4"] }]
-    });
+  async function refreshBrowserRoots() {
+    setBrowserBusy(true);
 
-    if (!picked || Array.isArray(picked)) {
-      return;
+    try {
+      const roots = await invoke<BrowserRoot[]>("list_browser_roots");
+      setBrowserRoots(roots);
+
+      if (roots.length === 0) {
+        setBrowserDirectory(null);
+        setBrowserRootKey(null);
+        setStatus("No browser roots are available in this sandbox.");
+        return;
+      }
+
+      const persistedDirectory = initialBrowserPreferences.directoryPath;
+      const activeRoot = roots.find((root) => root.key === browserRootKey) ?? roots[0];
+      const preferredPath = persistedDirectory && findRootKeyForPath(persistedDirectory, roots)
+        ? persistedDirectory
+        : activeRoot.path;
+
+      await loadBrowserDirectory(
+        preferredPath,
+        findRootKeyForPath(preferredPath, roots) ?? activeRoot.key,
+        initialBrowserPreferences.selectedPath,
+        roots
+      );
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setBrowserBusy(false);
     }
-
-    await importMp4(picked);
   }
 
-  async function openExistingSession() {
-    const picked = await open({
-      multiple: false,
-      filters: [{ name: "Session Manifest", extensions: ["json"] }]
-    });
+  async function loadBrowserDirectory(
+    path: string,
+    nextRootKey?: string,
+    nextSelection?: string | null,
+    rootsOverride?: BrowserRoot[]
+  ) {
+    setBrowserBusy(true);
 
-    if (!picked || Array.isArray(picked)) {
+    try {
+      const listing = await invoke<BrowserListing>("list_browser_directory", { path });
+      setBrowserDirectory(listing);
+      const roots = rootsOverride ?? browserRoots;
+      setBrowserRootKey(nextRootKey ?? findRootKeyForPath(path, roots));
+      const resolvedSelection = nextSelection && listing.entries.some((entry) => entry.path === nextSelection)
+        ? nextSelection
+        : null;
+      setBrowserSelectedPath(resolvedSelection);
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setBrowserBusy(false);
+    }
+  }
+
+  function selectBrowserFile(path: string) {
+    setBrowserSelectedPath(path);
+
+    const extension = fileExtension(path);
+    if (extension === "mp4") {
+      setStatus(`Selected ${baseName(path)} for MP4 import.`);
       return;
     }
 
-    await loadSession(picked);
+    if (extension === "json") {
+      setStatus(`Selected ${baseName(path)} as a session manifest.`);
+      return;
+    }
+
+    setStatus(`Selected ${baseName(path)} in the browser.`);
+  }
+
+  async function activateBrowserEntry(entry: BrowserEntry) {
+    if (entry.is_directory) {
+      await loadBrowserDirectory(entry.path, findRootKeyForPath(entry.path, browserRoots));
+      return;
+    }
+
+    selectBrowserFile(entry.path);
+  }
+
+  async function revealPathInBrowser(path: string) {
+    const normalizedPath = normalizeLocalPath(path);
+    if (!normalizedPath) {
+      return;
+    }
+
+    const parent = parentPath(normalizedPath);
+    if (!parent) {
+      return;
+    }
+
+    await loadBrowserDirectory(parent, findRootKeyForPath(parent, browserRoots), normalizedPath);
+    setStatus(`Revealed ${baseName(normalizedPath)} in the in-app browser.`);
   }
 
   async function importMp4(sourcePath: string) {
@@ -592,6 +753,7 @@ function App() {
 
       setLastExportPath(result.output_path);
       setStatus(`Export complete: ${result.output_path}`);
+      await revealPathInBrowser(result.output_path);
       await refreshRecentSessions();
     } catch (error) {
       setStatus(String(error));
@@ -602,20 +764,45 @@ function App() {
 
   const notesValue = session?.project.notes.join("\n") ?? "";
 
+  async function handleFileDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+
+    if (busy) {
+      return;
+    }
+
+    const droppedFile = event.dataTransfer.files?.[0] as (File & { path?: string }) | undefined;
+    const droppedPath = normalizeLocalPath(droppedFile?.path ?? "");
+
+    if (!droppedPath) {
+      setStatus("Dropped files are not exposed as local paths here. Use the browser instead.");
+      return;
+    }
+
+    if (droppedPath.toLowerCase().endsWith(".mp4")) {
+      await importMp4(droppedPath);
+      return;
+    }
+
+    if (droppedPath.toLowerCase().endsWith(".json")) {
+      await loadSession(droppedPath);
+      return;
+    }
+
+    setStatus("Drop an MP4 file or a session manifest JSON file.");
+  }
+
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => void handleFileDrop(event)}
+    >
       <header className="topbar">
         <div>
           <p className="eyebrow">Tauri rewrite</p>
           <h1>convffpg editor</h1>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost-button" onClick={() => void openExistingSession()} disabled={busy}>
-            Open session
-          </button>
-          <button className="accent-button" onClick={() => void pickMp4()} disabled={busy}>
-            Import MP4
-          </button>
+          <p className="topbar-note">Import, reopen, and reveal files from the in-app browser in the right rail.</p>
         </div>
       </header>
 
@@ -917,8 +1104,145 @@ function App() {
               <button className="accent-button small" onClick={() => void exportCurrentProject("Gif")} disabled={!session || busy}>
                 Export GIF
               </button>
+              <button
+                className="ghost-button small"
+                onClick={() => lastExportPath ? void revealPathInBrowser(lastExportPath) : undefined}
+                disabled={!lastExportPath || busy || browserBusy}
+              >
+                Reveal export
+              </button>
             </div>
             {lastExportPath ? <p className="path-note">Last export: {lastExportPath}</p> : null}
+          </div>
+
+          <div className="sidebar-section">
+            <h3>Sandbox browser</h3>
+            <div className="browser-root-list">
+              {browserRoots.map((root) => (
+                <button
+                  key={root.key}
+                  className={`ghost-button small ${browserRootKey === root.key ? "browser-root-active" : ""}`}
+                  onClick={() => void loadBrowserDirectory(root.path, root.key)}
+                  disabled={browserBusy}
+                >
+                  {root.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="browser-toolbar">
+              <button
+                className="ghost-button small"
+                onClick={() => browserDirectory?.parent_path ? void loadBrowserDirectory(browserDirectory.parent_path, browserRootKey ?? undefined) : undefined}
+                disabled={!browserDirectory?.parent_path || browserBusy}
+              >
+                Up
+              </button>
+              <button className="ghost-button small" onClick={() => void refreshBrowserRoots()} disabled={browserBusy}>
+                Refresh
+              </button>
+              {session ? (
+                <button
+                  className="ghost-button small"
+                  onClick={() => void revealPathInBrowser(session.manifest.files.session_dir)}
+                  disabled={browserBusy}
+                >
+                  Current session
+                </button>
+              ) : null}
+            </div>
+
+            <input
+              className="browser-search-input"
+              type="text"
+              value={browserQuery}
+              onChange={(event) => setBrowserQuery(event.target.value)}
+              placeholder="Search files in this directory"
+              disabled={browserBusy}
+            />
+
+            <div className="browser-filter-list">
+              <button
+                className={`ghost-button small ${browserFilter === "all" ? "browser-root-active" : ""}`}
+                onClick={() => setBrowserFilter("all")}
+                disabled={browserBusy}
+              >
+                All
+              </button>
+              <button
+                className={`ghost-button small ${browserFilter === "mp4" ? "browser-root-active" : ""}`}
+                onClick={() => setBrowserFilter("mp4")}
+                disabled={browserBusy}
+              >
+                MP4
+              </button>
+              <button
+                className={`ghost-button small ${browserFilter === "session" ? "browser-root-active" : ""}`}
+                onClick={() => setBrowserFilter("session")}
+                disabled={browserBusy}
+              >
+                Sessions
+              </button>
+            </div>
+
+            <p className="browser-path">{browserDirectory?.path ?? "Loading browser roots..."}</p>
+
+            {browserBreadcrumbs.length ? (
+              <div className="browser-breadcrumbs" aria-label="Browser breadcrumbs">
+                {browserBreadcrumbs.map((crumb, index) => (
+                  <button
+                    key={crumb.path}
+                    className={`browser-crumb ${index === browserBreadcrumbs.length - 1 ? "active" : ""}`}
+                    onClick={() => void loadBrowserDirectory(crumb.path, crumb.rootKey, browserSelectedPath)}
+                    disabled={browserBusy}
+                  >
+                    {crumb.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="browser-list" role="list">
+              {filteredBrowserEntries.length ? filteredBrowserEntries.map((entry) => {
+                const isSelected = browserSelectedPath === entry.path;
+
+                return (
+                  <button
+                    key={entry.path}
+                    className={`browser-entry ${isSelected ? "selected" : ""}`}
+                    onClick={() => void activateBrowserEntry(entry)}
+                    disabled={browserBusy}
+                  >
+                    <strong>{entry.is_directory ? `${entry.name}/` : entry.name}</strong>
+                    <span>{entry.is_directory ? "Folder" : fileExtension(entry.path).toUpperCase() || "File"}</span>
+                  </button>
+                );
+              }) : (
+                <p className="path-note">{browserBusy ? "Loading directory..." : browserDirectory ? "No entries match the current filter." : "This directory is empty."}</p>
+              )}
+            </div>
+
+            {selectedBrowserEntry && !selectedBrowserEntry.is_directory ? (
+              <div className="browser-actions">
+                <p className="path-note">Selected: {selectedBrowserEntry.path}</p>
+                <div className="toolbar-row compact">
+                  <button
+                    className="accent-button small"
+                    onClick={() => void importMp4(selectedBrowserEntry.path)}
+                    disabled={busy || fileExtension(selectedBrowserEntry.path) !== "mp4"}
+                  >
+                    Import selected MP4
+                  </button>
+                  <button
+                    className="ghost-button small"
+                    onClick={() => void loadSession(selectedBrowserEntry.path)}
+                    disabled={busy || fileExtension(selectedBrowserEntry.path) !== "json"}
+                  >
+                    Open selected session
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="sidebar-section">
@@ -973,6 +1297,124 @@ function trackDisplayName(kind: TimelineTrackKind) {
 }
 
 export default App;
+
+function loadBrowserPreferences(): BrowserPreferences {
+  if (typeof window === "undefined") {
+    return defaultBrowserPreferences();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(BROWSER_PREFERENCES_KEY);
+    if (!raw) {
+      return defaultBrowserPreferences();
+    }
+
+    const parsed = JSON.parse(raw) as Partial<BrowserPreferences>;
+    return {
+      rootKey: parsed.rootKey ?? null,
+      filter: parsed.filter === "mp4" || parsed.filter === "session" ? parsed.filter : "all",
+      query: typeof parsed.query === "string" ? parsed.query : "",
+      directoryPath: typeof parsed.directoryPath === "string" ? parsed.directoryPath : null,
+      selectedPath: typeof parsed.selectedPath === "string" ? parsed.selectedPath : null
+    };
+  } catch {
+    return defaultBrowserPreferences();
+  }
+}
+
+function defaultBrowserPreferences(): BrowserPreferences {
+  return {
+    rootKey: null,
+    filter: "all",
+    query: "",
+    directoryPath: null,
+    selectedPath: null
+  };
+}
+
+function saveBrowserPreferences(preferences: BrowserPreferences) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(BROWSER_PREFERENCES_KEY, JSON.stringify(preferences));
+}
+
+function normalizeLocalPath(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.startsWith("file://")) {
+    try {
+      return decodeURIComponent(new URL(trimmed).pathname);
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
+function fileExtension(path: string) {
+  const normalized = normalizeLocalPath(path);
+  const lastSegment = normalized.split("/").pop() ?? "";
+  const lastDot = lastSegment.lastIndexOf(".");
+
+  if (lastDot < 0) {
+    return "";
+  }
+
+  return lastSegment.slice(lastDot + 1).toLowerCase();
+}
+
+function baseName(path: string) {
+  const normalized = normalizeLocalPath(path);
+  return normalized.split("/").pop() || normalized;
+}
+
+function parentPath(path: string) {
+  const normalized = normalizeLocalPath(path).replace(/\/+$/, "");
+  const lastSlash = normalized.lastIndexOf("/");
+
+  if (lastSlash <= 0) {
+    return null;
+  }
+
+  return normalized.slice(0, lastSlash);
+}
+
+function findRootKeyForPath(path: string, roots: BrowserRoot[]) {
+  const normalized = normalizeLocalPath(path);
+  const matchingRoot = roots.find((root) => normalized === root.path || normalized.startsWith(`${root.path}/`));
+  return matchingRoot?.key ?? null;
+}
+
+function buildBrowserBreadcrumbs(path: string, roots: BrowserRoot[]) {
+  const normalized = normalizeLocalPath(path);
+  const root = roots.find((entry) => normalized === entry.path || normalized.startsWith(`${entry.path}/`));
+
+  if (!root) {
+    return [{ label: baseName(normalized), path: normalized, rootKey: null as string | null }];
+  }
+
+  const crumbs = [{ label: root.label, path: root.path, rootKey: root.key }];
+  const suffix = normalized.slice(root.path.length).replace(/^\/+/, "");
+
+  if (!suffix) {
+    return crumbs;
+  }
+
+  let currentPath = root.path;
+  for (const segment of suffix.split("/").filter(Boolean)) {
+    currentPath = `${currentPath}/${segment}`;
+    crumbs.push({ label: segment, path: currentPath, rootKey: root.key });
+  }
+
+  return crumbs;
+}
 
 function resolveSelection(project: ProjectDocument, selection: Selection | null | undefined) {
   if (!selection) {

@@ -56,6 +56,8 @@ button {
 
 .topbar {
   justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .topbar h1,
@@ -78,6 +80,12 @@ button {
 .toolbar-row {
   display: flex;
   gap: 10px;
+}
+
+.topbar-note {
+  margin: 8px 0 0;
+  max-width: 42rem;
+  color: #c8b39d;
 }
 
 .timeline-toolbar {
@@ -104,6 +112,7 @@ button {
 
 .status-strip {
   justify-content: space-between;
+  flex-wrap: wrap;
   padding: 14px 18px;
   background: rgba(14, 12, 11, 0.78);
   border: 1px solid rgba(255, 222, 189, 0.08);
@@ -441,6 +450,95 @@ textarea {
   color: #f8efe5;
 }
 
+.browser-root-list,
+.browser-filter-list,
+.browser-toolbar,
+.browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.browser-search-input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 220, 186, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8efe5;
+}
+
+.browser-search-input::placeholder {
+  color: #bca895;
+}
+
+.browser-search-input:focus {
+  outline: 2px solid rgba(240, 198, 147, 0.92);
+  outline-offset: 2px;
+}
+
+.browser-path {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c8b39d;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.browser-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.browser-crumb {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 220, 186, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8eadb;
+}
+
+.browser-crumb.active {
+  background: rgba(208, 108, 57, 0.22);
+  border-color: rgba(240, 198, 147, 0.42);
+}
+
+.browser-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.browser-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 214, 178, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f6efe7;
+  text-align: left;
+}
+
+.browser-entry.selected,
+.browser-root-active {
+  outline: 2px solid rgba(240, 198, 147, 0.92);
+}
+
+.browser-entry span {
+  color: #b89f87;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
 textarea {
   min-height: 110px;
   resize: vertical;
@@ -487,6 +585,13 @@ textarea {
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .browser-entry {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

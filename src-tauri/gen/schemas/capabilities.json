@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default capability set for the main convffpg window.","local":true,"windows":["main"],"permissions":["core:default","dialog:default","opener:default"]}}
+{"default":{"identifier":"default","description":"Default capability set for the main convffpg window.","local":true,"windows":["main"],"permissions":["core:default"]}}
