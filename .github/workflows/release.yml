@@ -58,11 +58,8 @@ jobs:
         run: |
           npm run build
           cargo build --release --manifest-path src-tauri/Cargo.toml
-          asset_root="convffpg_${GITHUB_REF_NAME:-manual}_linux_x86_64"
-          mkdir -p "$asset_root"
-          install -Dm755 src-tauri/target/release/convffpg-tauri "$asset_root/convffpg"
-          binary_name="${asset_root}.tar.gz"
-          tar -czf "$binary_name" "$asset_root"
+          binary_name="convffpg_${GITHUB_REF_NAME:-manual}_linux_x86_64"
+          install -Dm755 src-tauri/target/release/convffpg-tauri "$binary_name"
           echo "binary_name=$binary_name" >> "$GITHUB_OUTPUT"
 
       - name: Validate packaging metadata

@@ -1,13 +1,13 @@
 {
   "name": "convffpg",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite --config frontend/vite.config.ts",
     "build": "vite build --config frontend/vite.config.ts",
     "preview": "vite preview --config frontend/vite.config.ts",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "TAURI_CONFIG='{\"build\":{\"devUrl\":\"http://localhost:1420\"}}' tauri dev",
     "tauri:build": "tauri build"
   },
   "dependencies": {

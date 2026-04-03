@@ -30,11 +30,11 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.2.0" date="2026-04-03">
+    <release version="0.2.1" date="2026-04-03">
       <description>
         <p>
-          Adds the sandbox-safe in-app browser workflow, persisted browser state and breadcrumbs,
-          plus GitHub release assets for both the Flatpak bundle and the Linux desktop binary.
+          Fixes the Flatpak startup sandbox error by removing the packaged dev URL, keeps Tauri dev mode working,
+          and publishes the Linux binary directly instead of wrapping it in a tarball.
         </p>
       </description>
     </release>

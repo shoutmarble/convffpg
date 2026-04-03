@@ -16,6 +16,7 @@ finish-args:
   - --socket=wayland
   - --socket=pulseaudio
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
+  - --env=GIO_USE_VFS=local
   - --talk-name=org.freedesktop.portal.Desktop
   - --filesystem=xdg-download
   - --filesystem=xdg-videos
